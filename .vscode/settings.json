@@ -1,0 +1,18 @@
+{
+"C_Cpp.intelliSenseEngine": "Tag Parser",
+"idf.port": "/dev/cu.wchusbserial553C0054241",
+"idf.adapterTargetName": "esp32",
+"files.associations": {
+    "*.cjson": "jsonc",
+    "*.wxss": "css",
+    "*.wxs": "javascript",
+    "*.wpy": "vue",
+    "*.tcc": "c",
+    "fstream": "c",
+    "esp_vfs_semihost.h": "c",
+    "netbiosns.h": "c",
+    "freertos.h": "c",
+    "event_groups.h": "c",
+    "led_strip_encoder.h": "c"
+}
+}
