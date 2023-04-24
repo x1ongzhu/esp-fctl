@@ -43,7 +43,10 @@ static int wifi_max_retry_num = 0;
 
 esp_err_t start_rest_server(const char *base_path);
 void init_nvs(void);
+esp_err_t read_fan_speed(int32_t *fan_speed);
 void start_led(void);
+void fan_init(int speed);
+void start_rpm_timer(void);
 
 static void initialise_mdns(void)
 {
@@ -181,6 +184,12 @@ void init_wifi(void)
 void app_main(void)
 {
     init_nvs();
+    int32_t fan_speed = 0;
+    ESP_ERROR_CHECK(read_fan_speed(&fan_speed));
+    start_rpm_timer();
+    fan_init((int)fan_speed);
+    start_led();
+
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     initialise_mdns();
     netbiosns_init();
@@ -189,6 +198,4 @@ void app_main(void)
     init_wifi();
     ESP_ERROR_CHECK(init_fs());
     ESP_ERROR_CHECK(start_rest_server(CONFIG_EXAMPLE_WEB_MOUNT_POINT));
-
-    start_led();
 }

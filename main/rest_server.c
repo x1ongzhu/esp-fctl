@@ -16,8 +16,10 @@
 #include "cJSON.h"
 
 static const char *REST_TAG = "esp-rest";
+void set_fan_speed(int speed);
 esp_err_t read_fan_speed(int32_t *fan_speed);
 esp_err_t write_fan_speed(int32_t fan_speed);
+
 
 #define REST_CHECK(a, str, goto_tag, ...)                                              \
     do                                                                                 \
@@ -208,11 +210,14 @@ static esp_err_t fan_speed_get_handler(httpd_req_t *req)
     int32_t fan_speed = 0;
     ESP_ERROR_CHECK(read_fan_speed(&fan_speed));
     cJSON_AddNumberToObject(root, "speed", fan_speed);
-    const char *sys_info = cJSON_Print(root);
-    httpd_resp_sendstr(req, sys_info);
-    free((void *)sys_info);
+    const char *json_str = cJSON_Print(root);
+    char origin[1024];
+    httpd_req_get_hdr_value_str(req, "Origin", (char *)origin, 1024);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", origin);
+    httpd_resp_sendstr(req, json_str);
+    free((void *)json_str);
     cJSON_Delete(root);
-    
+
     return ESP_OK;
 }
 
@@ -247,12 +252,7 @@ static esp_err_t fan_speed_put_handler(httpd_req_t *req)
     ESP_ERROR_CHECK(write_fan_speed(speed));
     cJSON_Delete(root);
     httpd_resp_sendstr(req, "Post control value successfully");
-
-     // Set duty to 50%
-    ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, 4095 * speed / 100));
-    // Update duty to apply the new value
-    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
-
+    set_fan_speed(speed);
     return ESP_OK;
 }
 

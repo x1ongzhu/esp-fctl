@@ -40,6 +40,8 @@
                             step="1"
                             v-model="speed"
                             color="purple"
+                            :model-value="speed"
+                            @update:model-value="change"
                         ></v-slider>
                     </template>
                 </v-card>
@@ -51,7 +53,16 @@
 <script setup>
 import { mdiSineWave, mdiSpeedometer, mdiFan } from '@mdi/js'
 import { ref } from 'vue'
-const speed = ref(50)
+import axios from 'axios'
+import { useDebounceFn } from '@vueuse/core'
+const speed = ref(0)
+axios.get('http://192.168.50.123/api/fan/speed').then((res) => {
+    speed.value = res.data.speed
+})
+const change = useDebounceFn((e) => {
+    speed.value = e
+    axios.put('http://192.168.50.123/api/fan/speed', { speed: e })
+}, 100)
 </script>
 <style lang="scss" scoped>
 .speed-slider {

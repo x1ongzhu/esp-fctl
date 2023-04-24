@@ -71,7 +71,6 @@ esp_err_t write_fan_speed(int32_t fan_speed)
         // Close
         nvs_close(nvs_handle);
     }
-    ledc_update_duty(LEDC_MODE, LEDC_CHANNEL)
     return ESP_OK;
 }
 
