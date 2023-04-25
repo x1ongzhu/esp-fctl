@@ -14,12 +14,15 @@
 #include "esp_log.h"
 #include "esp_vfs.h"
 #include "cJSON.h"
+#include "esp_wifi.h"
 
 static const char *REST_TAG = "esp-rest";
 void set_fan_speed(int speed);
 esp_err_t read_fan_speed(int32_t *fan_speed);
 esp_err_t write_fan_speed(int32_t fan_speed);
-
+void led_set_color(uint32_t hue);
+extern int rpm;
+uint16_t wifi_scan(wifi_ap_record_t *ap_info, int size);
 
 #define REST_CHECK(a, str, goto_tag, ...)                                              \
     do                                                                                 \
@@ -138,42 +141,6 @@ static esp_err_t rest_common_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-/* Simple handler for light brightness control */
-static esp_err_t light_brightness_post_handler(httpd_req_t *req)
-{
-    int total_len = req->content_len;
-    int cur_len = 0;
-    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
-    int received = 0;
-    if (total_len >= SCRATCH_BUFSIZE)
-    {
-        /* Respond with 500 Internal Server Error */
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
-        return ESP_FAIL;
-    }
-    while (cur_len < total_len)
-    {
-        received = httpd_req_recv(req, buf + cur_len, total_len);
-        if (received <= 0)
-        {
-            /* Respond with 500 Internal Server Error */
-            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
-            return ESP_FAIL;
-        }
-        cur_len += received;
-    }
-    buf[total_len] = '\0';
-
-    cJSON *root = cJSON_Parse(buf);
-    int red = cJSON_GetObjectItem(root, "red")->valueint;
-    int green = cJSON_GetObjectItem(root, "green")->valueint;
-    int blue = cJSON_GetObjectItem(root, "blue")->valueint;
-    ESP_LOGI(REST_TAG, "Light control: red = %d, green = %d, blue = %d", red, green, blue);
-    cJSON_Delete(root);
-    httpd_resp_sendstr(req, "Post control value successfully");
-    return ESP_OK;
-}
-
 /* Simple handler for getting system handler */
 static esp_err_t system_info_get_handler(httpd_req_t *req)
 {
@@ -190,16 +157,19 @@ static esp_err_t system_info_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-/* Simple handler for getting temperature data */
-static esp_err_t temperature_data_get_handler(httpd_req_t *req)
+static esp_err_t rpm_get_handler(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "application/json");
     cJSON *root = cJSON_CreateObject();
-    cJSON_AddNumberToObject(root, "raw", 1);
-    const char *sys_info = cJSON_Print(root);
-    httpd_resp_sendstr(req, sys_info);
-    free((void *)sys_info);
+    cJSON_AddNumberToObject(root, "rpm", rpm);
+    const char *json_str = cJSON_Print(root);
+    char origin[1024];
+    httpd_req_get_hdr_value_str(req, "Origin", (char *)origin, 1024);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", origin);
+    httpd_resp_sendstr(req, json_str);
+    free((void *)json_str);
     cJSON_Delete(root);
+
     return ESP_OK;
 }
 
@@ -253,6 +223,34 @@ static esp_err_t fan_speed_put_handler(httpd_req_t *req)
     cJSON_Delete(root);
     httpd_resp_sendstr(req, "Post control value successfully");
     set_fan_speed(speed);
+    led_set_color(240 * speed / 100);
+    return ESP_OK;
+}
+
+static esp_err_t wifi_scan_get_handler(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "application/json");
+    cJSON *root = cJSON_CreateArray();
+
+    wifi_ap_record_t ap_info[10];
+    memset(ap_info, 0, sizeof(ap_info));
+    uint16_t ap_count = wifi_scan(ap_info, 10);
+    for (int i = 0; (i < 10) && (i < ap_count); i++)
+    {
+        cJSON *item = cJSON_CreateObject();
+        cJSON_AddStringToObject(item, "ssid", (char *)(ap_info[i].ssid));
+        cJSON_AddNumberToObject(item, "rssi", ap_info[i].rssi);
+        cJSON_AddNumberToObject(item, "channel", ap_info[i].primary);
+        cJSON_AddItemToArray(root, item);
+    }
+    const char *json_str = cJSON_Print(root);
+    char origin[1024];
+    httpd_req_get_hdr_value_str(req, "Origin", (char *)origin, 1024);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", origin);
+    httpd_resp_sendstr(req, json_str);
+    free((void *)json_str);
+    cJSON_Delete(root);
+
     return ESP_OK;
 }
 
@@ -278,21 +276,12 @@ esp_err_t start_rest_server(const char *base_path)
         .user_ctx = rest_context};
     httpd_register_uri_handler(server, &system_info_get_uri);
 
-    /* URI handler for fetching temperature data */
-    httpd_uri_t temperature_data_get_uri = {
-        .uri = "/api/v1/temp/raw",
+    httpd_uri_t rpm_get_uri = {
+        .uri = "/api/rpm/get",
         .method = HTTP_GET,
-        .handler = temperature_data_get_handler,
+        .handler = rpm_get_handler,
         .user_ctx = rest_context};
-    httpd_register_uri_handler(server, &temperature_data_get_uri);
-
-    /* URI handler for light brightness control */
-    httpd_uri_t light_brightness_post_uri = {
-        .uri = "/api/v1/light/brightness",
-        .method = HTTP_POST,
-        .handler = light_brightness_post_handler,
-        .user_ctx = rest_context};
-    httpd_register_uri_handler(server, &light_brightness_post_uri);
+    httpd_register_uri_handler(server, &rpm_get_uri);
 
     httpd_uri_t fan_speed_get_uri = {
         .uri = "/api/fan/speed",
@@ -307,6 +296,13 @@ esp_err_t start_rest_server(const char *base_path)
         .handler = fan_speed_put_handler,
         .user_ctx = rest_context};
     httpd_register_uri_handler(server, &fan_speed_put_uri);
+
+    httpd_uri_t wifi_scan_get_uri = {
+        .uri = "/api/wifi/scan",
+        .method = HTTP_GET,
+        .handler = wifi_scan_get_handler,
+        .user_ctx = rest_context};
+    httpd_register_uri_handler(server, &wifi_scan_get_uri);
 
     /* URI handler for getting web server files */
     httpd_uri_t common_get_uri = {

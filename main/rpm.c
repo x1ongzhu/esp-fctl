@@ -21,57 +21,53 @@
 
 #define GPIO_RPM 26
 
-static void periodic_timer_callback(void* arg);
+static void periodic_timer_callback(void *arg);
 static int count = 0;
-static int rpm = 0;
+  int rpm = 0;
 
-static void IRAM_ATTR gpio_isr_handler(void* arg)
+static void IRAM_ATTR gpio_isr_handler(void *arg)
 {
     count++;
 }
 
 void start_rpm_timer(void)
 {
-     //zero-initialize the config structure.
+    // zero-initialize the config structure.
     gpio_config_t io_conf = {};
-    //disable interrupt
+    // disable interrupt
     io_conf.intr_type = GPIO_INTR_POSEDGE;
-    //set as output mode
+    // set as output mode
     io_conf.mode = GPIO_MODE_INPUT;
-    //bit mask of the pins that you want to set,e.g.GPIO18/19
-    io_conf.pin_bit_mask = (1ULL<<GPIO_RPM);
-    //disable pull-down mode
+    // bit mask of the pins that you want to set,e.g.GPIO18/19
+    io_conf.pin_bit_mask = (1ULL << GPIO_RPM);
+    // disable pull-down mode
     io_conf.pull_down_en = 1;
-    //disable pull-up mode
+    // disable pull-up mode
     io_conf.pull_up_en = 0;
-    //configure GPIO with the given settings
+    // configure GPIO with the given settings
     gpio_config(&io_conf);
 
-
-    //install gpio isr service
+    // install gpio isr service
     gpio_install_isr_service(0);
-    //hook isr handler for specific gpio pin
-    gpio_isr_handler_add(GPIO_RPM, gpio_isr_handler, (void*) GPIO_RPM);
-
+    // hook isr handler for specific gpio pin
+    gpio_isr_handler_add(GPIO_RPM, gpio_isr_handler, (void *)GPIO_RPM);
 
     const esp_timer_create_args_t periodic_timer_args = {
-            .callback = &periodic_timer_callback,
-            /* name is optional, but may help identify the timer when debugging */
-            .name = "periodic"
-    };
+        .callback = &periodic_timer_callback,
+        /* name is optional, but may help identify the timer when debugging */
+        .name = "periodic"};
 
     esp_timer_handle_t periodic_timer;
     ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
     /* The timer has been created but is not running yet */
-    
+
     /* Start the timers */
     ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 3000000));
 }
 
-static void periodic_timer_callback(void* arg)
+static void periodic_timer_callback(void *arg)
 {
     rpm = count * 20 / 2;
     ESP_LOGI("RPM", "RPM = %d", rpm);
     count = 0;
 }
-

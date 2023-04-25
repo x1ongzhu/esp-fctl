@@ -1,5 +1,5 @@
 idf_component_register(SRCS "led_strip_encoder.c" "led.c" "storage.c" "esp_rest_main.c"
-                            "rest_server.c" "fan.c" "rpm.c"
+                            "rest_server.c" "fan.c" "rpm.c" "wifi.c"
                     INCLUDE_DIRS ".")
 
 if(CONFIG_EXAMPLE_WEB_DEPLOY_SF)
