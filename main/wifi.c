@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "string.h"
 
 #define SSID "fctl"
 #define PASSPHRASE "qwerasdf"
@@ -64,14 +65,14 @@ void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id
     }
 }
 
-uint16_t wifi_scan(wifi_ap_record_t *ap_info, int size)
+uint16_t wifi_scan(wifi_ap_record_t *ap_info, uint16_t size)
 {
     esp_wifi_scan_start(NULL, true);
     uint16_t ap_count = 0;
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&size, ap_info));
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
     ESP_LOGI(TAG_WIFI, "Total APs scanned = %u", ap_count);
-    
+
     // for (int i = 0; (i < size) && (i < ap_count); i++)
     // {
     //     ESP_LOGI(TAG_WIFI, "SSID \t\t%s", ap_info[i].ssid);
@@ -79,6 +80,33 @@ uint16_t wifi_scan(wifi_ap_record_t *ap_info, int size)
     //     ESP_LOGI(TAG_WIFI, "Channel \t\t%d\n", ap_info[i].primary);
     // }
     return ap_count;
+}
+
+void start_ap(void)
+{
+    ESP_ERROR_CHECK(esp_wifi_stop());
+    wifi_config_t ap_config = {
+        .ap = {
+            .ssid = SSID,
+            .ssid_len = strlen(SSID),
+            .password = PASSPHRASE,
+            .max_connection = 4,
+            .authmode = WIFI_AUTH_WPA_WPA2_PSK}};
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &ap_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+}
+
+void connect(char *ssid, char *password)
+{
+    ESP_ERROR_CHECK(esp_wifi_disconnect());
+    wifi_config_t sta_config = {
+        .sta = {
+            .ssid = {ssid},
+            .password = {password}}};
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &sta_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK(esp_wifi_connect());
 }
 
 void init_wifi(void)

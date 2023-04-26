@@ -68,6 +68,5 @@ void start_rpm_timer(void)
 static void periodic_timer_callback(void *arg)
 {
     rpm = count * 20 / 2;
-    ESP_LOGI("RPM", "RPM = %d", rpm);
     count = 0;
 }

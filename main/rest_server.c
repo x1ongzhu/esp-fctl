@@ -234,7 +234,7 @@ static esp_err_t wifi_scan_get_handler(httpd_req_t *req)
 
     wifi_ap_record_t ap_info[10];
     memset(ap_info, 0, sizeof(ap_info));
-    uint16_t ap_count = wifi_scan(ap_info, 10);
+    uint16_t ap_count = wifi_scan(&ap_info, 10);
     for (int i = 0; (i < 10) && (i < ap_count); i++)
     {
         cJSON *item = cJSON_CreateObject();

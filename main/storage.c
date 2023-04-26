@@ -3,75 +3,176 @@
 #include "nvs.h"
 #include "esp_log.h"
 
-esp_err_t read_fan_speed(int32_t *fan_speed)
+#define STORAGE_NAMESPACE "storage"
+#define NVS_READ_STR_LENGTH 1024
+
+static const char *TAG_NVS = "NVS";
+
+esp_err_t write_int(char *key, int32_t value)
 {
     nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs_handle);
-    if (err != ESP_OK)
+    esp_err_t res = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (res != ESP_OK)
     {
-        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-        return ESP_FAIL;
-    }
-    else
-    {
-        // Read
-        printf("Reading fan speed from NVS ... ");
-        err = nvs_get_i32(nvs_handle, "fan_speed", fan_speed);
-        switch (err)
-        {
-        case ESP_OK:
-            printf("Done\n");
-            printf("fan_speed = %d\n", (int)*fan_speed);
-            break;
-        case ESP_ERR_NVS_NOT_FOUND:
-            printf("The value is not initialized yet!\n");
-            break;
-        default:
-            printf("Error (%s) reading!\n", esp_err_to_name(err));
-        }
-
-        // Close
-        nvs_close(nvs_handle);
-    }
-    return ESP_OK;
-}
-
-esp_err_t write_fan_speed(int32_t fan_speed)
-{
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs_handle);
-    if (err != ESP_OK)
-    {
-        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-        return ESP_FAIL;
+        ESP_LOGI(TAG_NVS, "Error (%s) opening NVS handle!", esp_err_to_name(res));
     }
     else
     {
         // Write
-        printf("Updating fan speed in NVS ... ");
-        err = nvs_set_i32(nvs_handle, "fan_speed", fan_speed);
+        ESP_LOGI(TAG_NVS, "Updating %s in NVS ... ", key);
+        res = nvs_set_i32(nvs_handle, key, value);
 
-        if (err != ESP_OK)
+        if (res != ESP_OK)
         {
-            printf("Error (%s) set!\n", esp_err_to_name(err));
+            ESP_LOGI(TAG_NVS, "Error (%s) set!", esp_err_to_name(res));
         }
         else
         {
-            printf("Done set fan_speed");
+            ESP_LOGI(TAG_NVS, "Done set %s", key);
         }
 
         // Commit written value.
         // After setting any values, nvs_commit() must be called to ensure changes are written
         // to flash storage. Implementations may write to storage at other times,
         // but this is not guaranteed.
-        printf("Committing updates in NVS ... ");
-        err = nvs_commit(nvs_handle);
-        printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
+        ESP_LOGI(TAG_NVS, "Committing updates in NVS ... ");
+        res = nvs_commit(nvs_handle);
+        if (res != ESP_OK)
+        {
+            ESP_LOGI(TAG_NVS, "Error (%s) commit!", esp_err_to_name(res));
+        }
+        else
+        {
+            ESP_LOGI(TAG_NVS, "Done commit");
+        }
 
         // Close
         nvs_close(nvs_handle);
     }
-    return ESP_OK;
+    return res;
+}
+
+esp_err_t read_int(char *key, int32_t *value)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t res = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (res != ESP_OK)
+    {
+        ESP_LOGI(TAG_NVS, "Error (%s) opening NVS handle!\n", esp_err_to_name(res));
+    }
+    else
+    {
+        ESP_LOGI(TAG_NVS, "Reading %s from NVS ... ", key);
+        res = nvs_get_i32(nvs_handle, key, value);
+        switch (res)
+        {
+        case ESP_OK:
+            ESP_LOGI(TAG_NVS, "Done, %s = %d", key, (int)*value);
+            break;
+        case ESP_ERR_NVS_NOT_FOUND:
+            ESP_LOGI(TAG_NVS, "The value is not initialized yet!\n");
+            break;
+        default:
+            ESP_LOGI(TAG_NVS, "Error reading %s: %s", key, esp_err_to_name(res));
+        }
+
+        nvs_close(nvs_handle);
+    }
+    return res;
+}
+
+esp_err_t write_str(char *key, char *value)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t res = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (res != ESP_OK)
+    {
+        ESP_LOGI(TAG_NVS, "Error (%s) opening NVS handle!", esp_err_to_name(res));
+    }
+    else
+    {
+        // Write
+        ESP_LOGI(TAG_NVS, "Updating %s in NVS ... ", key);
+        res = nvs_set_str(nvs_handle, key, value);
+
+        if (res != ESP_OK)
+        {
+            ESP_LOGI(TAG_NVS, "Error (%s) set!", esp_err_to_name(res));
+        }
+        else
+        {
+            ESP_LOGI(TAG_NVS, "Done set %s", key);
+        }
+
+        // Commit written value.
+        // After setting any values, nvs_commit() must be called to ensure changes are written
+        // to flash storage. Implementations may write to storage at other times,
+        // but this is not guaranteed.
+        ESP_LOGI(TAG_NVS, "Committing updates in NVS ... ");
+        res = nvs_commit(nvs_handle);
+        if (res != ESP_OK)
+        {
+            ESP_LOGI(TAG_NVS, "Error (%s) commit!", esp_err_to_name(res));
+        }
+        else
+        {
+            ESP_LOGI(TAG_NVS, "Done commit");
+        }
+
+        // Close
+        nvs_close(nvs_handle);
+    }
+    return res;
+}
+
+esp_err_t read_str(char *key, char *value)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t res = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (res != ESP_OK)
+    {
+        ESP_LOGI(TAG_NVS, "Error (%s) opening NVS handle!\n", esp_err_to_name(res));
+    }
+    else
+    {
+        ESP_LOGI(TAG_NVS, "Reading %s from NVS ... ", key);
+        size_t len = NVS_READ_STR_LENGTH;
+        res = nvs_get_str(nvs_handle, key, value, &len);
+        switch (res)
+        {
+        case ESP_OK:
+            ESP_LOGI(TAG_NVS, "Done, %s = %s", key, value);
+            break;
+        case ESP_ERR_NVS_NOT_FOUND:
+            ESP_LOGI(TAG_NVS, "The value is not initialized yet!");
+            break;
+        default:
+            ESP_LOGI(TAG_NVS, "Error reading %s: %s", key, esp_err_to_name(res));
+        }
+
+        nvs_close(nvs_handle);
+    }
+    return res;
+}
+
+esp_err_t read_fan_speed(int32_t *fan_speed)
+{
+    return read_int("fan_speed", fan_speed);
+}
+
+esp_err_t read_ssid(char *ssid)
+{
+    return read_str("ssid", ssid);
+}
+
+esp_err_t write_fan_speed(int32_t fan_speed)
+{
+    return write_int("fan_speed", fan_speed);
+}
+
+esp_err_t write_ssid(char *ssid)
+{
+    return write_str("ssid", ssid);
 }
 
 void init_nvs(void)
