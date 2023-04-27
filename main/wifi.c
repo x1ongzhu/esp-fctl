@@ -22,26 +22,33 @@
 static const char *TAG_WIFI = "WIFI";
 static EventGroupHandle_t s_wifi_event_group;
 static int wifi_retry_num = 0;
+static wifi_config_t sta_config;
+static wifi_config_t ap_config;
+void start_ap(void);
 
 void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
     {
+        ESP_LOGI(TAG_WIFI, "wifi sta start");
         esp_wifi_connect();
     }
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
     {
-        if (wifi_retry_num < WIFI_MAXIMUM_RETRY)
+        wifi_mode_t mode;
+        esp_wifi_get_mode(&mode);
+        if (wifi_retry_num < WIFI_MAXIMUM_RETRY && mode == WIFI_MODE_STA)
         {
+            ESP_LOGI(TAG_WIFI, "wifi connection fail, retrying...");
             esp_wifi_connect();
             wifi_retry_num++;
-            ESP_LOGI(TAG_WIFI, "retry to connect to the AP");
         }
         else
         {
+            ESP_LOGI(TAG_WIFI, "maximum retry reached, starting AP");
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+            start_ap();
         }
-        ESP_LOGI(TAG_WIFI, "connect to the AP fail");
     }
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
@@ -67,46 +74,82 @@ void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id
 
 uint16_t wifi_scan(wifi_ap_record_t *ap_info, uint16_t size)
 {
-    esp_wifi_scan_start(NULL, true);
+    ESP_LOGI(TAG_WIFI, "start wifi scan");
+    esp_err_t err = esp_wifi_clear_ap_list();
+    if (ESP_OK != err)
+    {
+        ESP_LOGE(TAG_WIFI, "err clear ap list: %s", esp_err_to_name(err));
+    }
+    err = esp_wifi_scan_start(NULL, true);
+    if (ESP_OK != err)
+    {
+        ESP_LOGE(TAG_WIFI, "err start scan: %s", esp_err_to_name(err));
+    }
     uint16_t ap_count = 0;
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&size, ap_info));
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+    err = esp_wifi_scan_get_ap_records(&size, ap_info);
+    if (ESP_OK != err)
+    {
+        ESP_LOGE(TAG_WIFI, "err get ap records: %s", esp_err_to_name(err));
+    }
+    ESP_ERROR_CHECK(err);
+    err = esp_wifi_scan_get_ap_num(&ap_count);
+    if (ESP_OK != err)
+    {
+        ESP_LOGE(TAG_WIFI, "err get ap num: %s", esp_err_to_name(err));
+    }
+    ESP_ERROR_CHECK(err);
     ESP_LOGI(TAG_WIFI, "Total APs scanned = %u", ap_count);
 
-    // for (int i = 0; (i < size) && (i < ap_count); i++)
-    // {
-    //     ESP_LOGI(TAG_WIFI, "SSID \t\t%s", ap_info[i].ssid);
-    //     ESP_LOGI(TAG_WIFI, "RSSI \t\t%d", ap_info[i].rssi);
-    //     ESP_LOGI(TAG_WIFI, "Channel \t\t%d\n", ap_info[i].primary);
-    // }
     return ap_count;
 }
 
 void start_ap(void)
 {
-    ESP_ERROR_CHECK(esp_wifi_stop());
-    wifi_config_t ap_config = {
-        .ap = {
-            .ssid = SSID,
-            .ssid_len = strlen(SSID),
-            .password = PASSPHRASE,
-            .max_connection = 4,
-            .authmode = WIFI_AUTH_WPA_WPA2_PSK}};
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &ap_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
+    wifi_retry_num = 0;
+    ESP_LOGI(TAG_WIFI, "start wifi ap mode");
+
+    const char *ssid = SSID;
+    strncpy((char *)ap_config.ap.ssid, ssid, sizeof(ap_config.ap.ssid));
+    ap_config.ap.authmode = WIFI_AUTH_OPEN;
+    ap_config.ap.max_connection = 8;
+
+    esp_err_t err = esp_wifi_set_mode(WIFI_MODE_AP);
+    if (ESP_OK != err)
+    {
+        ESP_LOGE(TAG_WIFI, "err set wifo mode: %s", esp_err_to_name(err));
+    }
+
+    err = esp_wifi_set_config(ESP_IF_WIFI_AP, &ap_config);
+    if (ESP_OK != err)
+    {
+        ESP_LOGE(TAG_WIFI, "err set wifi config: %s", esp_err_to_name(err));
+    }
 }
 
-void connect(char *ssid, char *password)
+void start_sta(char *ssid, char *password)
 {
-    ESP_ERROR_CHECK(esp_wifi_disconnect());
-    wifi_config_t sta_config = {
-        .sta = {
-            .ssid = {ssid},
-            .password = {password}}};
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &sta_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-    ESP_ERROR_CHECK(esp_wifi_connect());
+    wifi_retry_num = 0;
+    ESP_LOGI(TAG_WIFI, "start wifi sta mode");
+    esp_err_t err = esp_wifi_disconnect();
+    if (ESP_OK != err)
+    {
+        ESP_LOGE(TAG_WIFI, "err disconnect wifi: %s", esp_err_to_name(err));
+    }
+
+    strncpy((char *)sta_config.sta.ssid, ssid, strlen(ssid));
+    strncpy((char *)sta_config.sta.password, password, strlen(password));
+
+    err = esp_wifi_set_mode(WIFI_MODE_STA);
+    if (ESP_OK != err)
+    {
+        ESP_LOGE(TAG_WIFI, "err set wifi mode: %s", esp_err_to_name(err));
+    }
+
+    err = esp_wifi_set_config(ESP_IF_WIFI_STA, &sta_config);
+    if (ESP_OK != err)
+    {
+        ESP_LOGE(TAG_WIFI, "err set wifi config: %s", esp_err_to_name(err));
+    }
 }
 
 void init_wifi(void)
@@ -123,26 +166,8 @@ void init_wifi(void)
 
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
 
-    // ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-
-    // wifi_config_t ap_config = {
-    //     .ap = {
-    //         .ssid = SSID,
-    //         .ssid_len = strlen(SSID),
-    //         .password = PASSPHRASE,
-    //         .max_connection = 4,
-    //         .authmode = WIFI_AUTH_WPA_WPA2_PSK}};
-    // ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &ap_config));
-
-    wifi_config_t sta_config = {
-        .sta = {
-            .ssid = STA_SSID,
-            .password = STA_PASSPHRASE}};
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &sta_config));
 
     ESP_ERROR_CHECK(esp_wifi_start());
     ESP_ERROR_CHECK(esp_wifi_connect());
-
-    ESP_LOGI(TAG_WIFI, "Wi-Fi AP and Station started.");
 }
