@@ -16,6 +16,7 @@
 #define FAN_IO (18)           // Define the output GPIO
 #define PWM_FREQUENCY (25000) // Frequency in Hertz. Set frequency at 5 kHz
 
+static const char *TAG_FAN = "FAN";
 void set_fan_speed(int speed);
 
 void fan_init(int speed)
@@ -39,16 +40,18 @@ void fan_init(int speed)
         .duty = 0, // Set duty to 0%
         .hpoint = 0};
     ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
-    
+
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     set_fan_speed(speed);
 }
 
 void set_fan_speed(int speed)
 {
-    ESP_LOGI("fan", "set fan pwd duty = %d", (int)(255 * speed / 100));
-    // Set duty to 50%
-    ESP_ERROR_CHECK(ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, (int)(255 * (100 - speed) / 100)));
-    // Update duty to apply the new value
-    ESP_ERROR_CHECK(ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0));
+    ESP_LOGI(TAG_FAN, "start set pwm duty: %d", (int)(255 * speed / 100));
+
+    esp_err_t err = ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, (int)(255 * (100 - speed) / 100));
+    ESP_ERROR_CHECK(err);
+
+    err = ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0);
+    ESP_ERROR_CHECK(err);
 }

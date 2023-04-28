@@ -1,7 +1,8 @@
 // Plugins
 import vue from '@vitejs/plugin-vue'
 import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
-import Inspect from 'vite-plugin-inspect'
+import viteCompression from 'vite-plugin-compression'
+import gzipPlugin from 'rollup-plugin-gzip'
 
 // Utilities
 import { defineConfig } from 'vite'
@@ -16,8 +17,7 @@ export default defineConfig({
         // https://github.com/vuetifyjs/vuetify-loader/tree/next/packages/vite-plugin
         vuetify({
             autoImport: true
-        }),
-        Inspect()
+        })
     ],
     define: { 'process.env': {} },
     resolve: {
@@ -28,5 +28,14 @@ export default defineConfig({
     },
     server: {
         host: '0.0.0.0'
+    },
+    build: {
+        rollupOptions: {
+            plugins: [
+                gzipPlugin({
+                    fileName: ''
+                })
+            ]
+        }
     }
 })

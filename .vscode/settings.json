@@ -40,7 +40,9 @@
         "chrono": "c",
         "random": "c",
         "limits": "c",
-        "semaphore": "c"
+        "semaphore": "c",
+        "string.h": "c",
+        "esp_mac.h": "c"
     },
     "idf.flashBaudRate": "150000"
 }

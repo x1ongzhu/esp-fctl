@@ -23,7 +23,7 @@ esp_err_t write_fan_speed(int32_t fan_speed);
 void led_set_color(uint32_t hue);
 extern int rpm;
 uint16_t wifi_scan(wifi_ap_record_t *ap_info, int size);
-void start_sta(char *ssid, char *password);
+void config_sta(char *ssid, char *password);
 esp_err_t read_str(char *key, char *value);
 esp_err_t write_str(char *key, char *value);
 
@@ -55,14 +55,17 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filepa
     if (CHECK_FILE_EXTENSION(filepath, ".html"))
     {
         type = "text/html";
+        httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
     }
     else if (CHECK_FILE_EXTENSION(filepath, ".js"))
     {
         type = "application/javascript";
+        httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
     }
     else if (CHECK_FILE_EXTENSION(filepath, ".css"))
     {
         type = "text/css";
+        httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
     }
     else if (CHECK_FILE_EXTENSION(filepath, ".png"))
     {
@@ -344,7 +347,7 @@ static esp_err_t wifi_sta_post_handler(httpd_req_t *req)
     cJSON_Delete(root);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"status\": \"ok\"}");
-    start_sta(ssid, password);
+    config_sta(ssid, password);
     return ESP_OK;
 }
 

@@ -72,8 +72,7 @@
                             class="speed-slider mt-2"
                             step="1"
                             color="purple"
-                            :model-value="speed"
-                            @update:model-value="change"
+                            v-model="speed"
                         ></v-slider>
                     </template>
                 </v-card>
@@ -91,28 +90,31 @@ import {
     mdiSignalVariant,
     mdiAlertBox
 } from '@mdi/js'
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import axios from 'axios'
 import { useDebounceFn } from '@vueuse/core'
 const speed = ref(0)
 const mode = ref(0)
 const name = ref('fctl')
-axios.get('/fan/speed').then((res) => {
-    speed.value = res.data.speed
-})
-axios.get('/mode/get').then((res) => {
-    mode.value = res.data.mode
-})
-axios.get('/name').then((res) => {
-    name.value = res.data.name
-})
+const rpm = ref(0)
+
 const change = useDebounceFn((e) => {
-    speed.value = e
+    console.log(e)
     axios.put('/fan/speed', { speed: e })
 }, 100)
-const rpm = ref(0)
+watch(speed, change)
+
 let i
 onMounted(() => {
+    axios.get('/fan/speed').then((res) => {
+        speed.value = res.data.speed
+    })
+    axios.get('/mode/get').then((res) => {
+        mode.value = res.data.mode
+    })
+    axios.get('/name').then((res) => {
+        name.value = res.data.name
+    })
     i = setInterval(() => {
         axios.get('/rpm/get').then((res) => {
             rpm.value = res.data.rpm
