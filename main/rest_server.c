@@ -282,7 +282,7 @@ static esp_err_t mode_get_handler(httpd_req_t *req)
     cJSON *root = cJSON_CreateObject();
     wifi_mode_t mode;
     esp_wifi_get_mode(&mode);
-    cJSON_AddNumberToObject(root, "mode", mode == WIFI_MODE_STA ? 0 : 1);
+    cJSON_AddNumberToObject(root, "mode", (int)mode);
     const char *json_str = cJSON_Print(root);
     httpd_resp_sendstr(req, json_str);
     free((void *)json_str);
@@ -344,10 +344,10 @@ static esp_err_t wifi_sta_post_handler(httpd_req_t *req)
     char *ssid = cJSON_GetObjectItem(root, "ssid")->valuestring;
     char *password = cJSON_GetObjectItem(root, "password")->valuestring;
     ESP_LOGI(REST_TAG, "ssid = %s, password = %s", ssid, password);
-    cJSON_Delete(root);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"status\": \"ok\"}");
     config_sta(ssid, password);
+    cJSON_Delete(root);
     return ESP_OK;
 }
 

@@ -17,16 +17,12 @@
                 <v-card elevation="2">
                     <template #subtitle>
                         <span class="d-flex align-center">
-                            <v-icon
-                                :icon="mode === 0 ? mdiSignalVariant : mdiBroadcast"
-                                class="mr-2"
-                            >
-                            </v-icon>
+                            <v-icon :icon="mdiBroadcast" class="mr-2"> </v-icon>
                             MODE
                         </span>
                     </template>
                     <template #text>
-                        <span style="font-size: 24px">{{ mode === 0 ? 'STA' : 'AP' }}</span>
+                        <span style="font-size: 24px">{{ modeStr }}</span>
                     </template>
                 </v-card>
             </v-col>
@@ -82,21 +78,29 @@
 </template>
 
 <script setup>
-import {
-    mdiSineWave,
-    mdiSpeedometer,
-    mdiFan,
-    mdiBroadcast,
-    mdiSignalVariant,
-    mdiAlertBox
-} from '@mdi/js'
+import { mdiSineWave, mdiSpeedometer, mdiFan, mdiBroadcast, mdiAlertBox } from '@mdi/js'
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import axios from 'axios'
 import { useDebounceFn } from '@vueuse/core'
+import { computed } from 'vue'
 const speed = ref(0)
 const mode = ref(0)
 const name = ref('fctl')
 const rpm = ref(0)
+const modeStr = computed(() => {
+    switch (mode.value) {
+        case 0:
+            return 'NONE'
+        case 1:
+            return 'STA'
+        case 2:
+            return 'AP'
+        case 3:
+            return 'AP+STA'
+        default:
+            return 'UNKNOWN'
+    }
+})
 
 const change = useDebounceFn((e) => {
     console.log(e)
