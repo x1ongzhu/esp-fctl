@@ -41,8 +41,7 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { computed } from 'vue'
-import { mdiRefresh } from '@mdi/js'
-const items = ref([{ ssid: 'sdfasdfkasj', rssi: -50 }])
+const items = ref([])
 const aps = computed(() => {
     return items.value
         .map((item) => item.ssid)
